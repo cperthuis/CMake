@@ -21,7 +21,7 @@ class cmGlobalVisualStudio14Generator:
 {
 public:
   cmGlobalVisualStudio14Generator(cmake* cm, const std::string& name,
-    const std::string& platformName);
+    const std::string& platformName, const char* generatorExtraType = NULL);
   static cmGlobalGeneratorFactory* NewFactory();
 
   virtual bool MatchesGeneratorName(const std::string& name) const;

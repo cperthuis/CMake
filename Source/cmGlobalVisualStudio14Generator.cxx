@@ -58,6 +58,10 @@ public:
       {
       return new cmGlobalVisualStudio14Generator(cm, genName, "ARM");
       }
+    if(strcmp(p, "GDB") == 0)
+      {
+      return new cmGlobalVisualStudio14Generator(cm, genName, "x64", "GDB");
+      }
     return 0;
     }
 
@@ -75,6 +79,7 @@ public:
     names.push_back(vs14generatorName);
     names.push_back(vs14generatorName + std::string(" ARM"));
     names.push_back(vs14generatorName + std::string(" Win64"));
+    names.push_back(vs14generatorName + std::string(" GDB"));
     }
 
   virtual bool SupportsToolset() const { return true; }
@@ -88,7 +93,8 @@ cmGlobalGeneratorFactory* cmGlobalVisualStudio14Generator::NewFactory()
 
 //----------------------------------------------------------------------------
 cmGlobalVisualStudio14Generator::cmGlobalVisualStudio14Generator(cmake* cm,
-  const std::string& name, const std::string& platformName)
+  const std::string& name, const std::string& platformName,
+  const char* generatorExtraType)
   : cmGlobalVisualStudio12Generator(cm, name, platformName)
 {
   std::string vc14Express;
@@ -97,6 +103,13 @@ cmGlobalVisualStudio14Generator::cmGlobalVisualStudio14Generator(cmake* cm,
     "ProductDir", vc14Express, cmSystemTools::KeyWOW64_32);
   this->DefaultPlatformToolset = "v140";
   this->Version = VS14;
+  if (generatorExtraType)
+    {
+    if (strcmp(generatorExtraType, "GDB") == 0)
+      {
+      this->IsGDBProject = true;
+      }
+    }
 }
 
 //----------------------------------------------------------------------------

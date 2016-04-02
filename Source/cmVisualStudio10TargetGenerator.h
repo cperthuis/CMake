@@ -64,6 +64,8 @@ private:
   void WriteSources(std::string const& tool,
                     std::vector<cmSourceFile const*> const&);
   void WriteAllSources();
+  void WriteGDBGroup();
+  void WriteNMakeConfigCommands();
   void WriteDotNetReferences();
   void WriteEmbeddedResourceGroup();
   void WriteWinRTReferences();
@@ -137,6 +139,9 @@ private:
   cmIDEFlagTable const* GetMasmFlagTable() const;
 
   bool ForceOld(const std::string& source) const;
+
+  void CopyProjectConfigurationExtensionFile(const char *file,
+    const char *fileDesc) const;
 
 private:
   typedef cmVisualStudioGeneratorOptions Options;

@@ -500,6 +500,7 @@ void cmVisualStudio10TargetGenerator::Generate()
   this->WriteItemDefinitionGroups();
   this->WriteCustomCommands();
   this->WriteAllSources();
+  this->WriteGDBGroup();
   this->WriteDotNetReferences();
   this->WriteEmbeddedResourceGroup();
   this->WriteXamlFilesGroup();
@@ -510,6 +511,7 @@ void cmVisualStudio10TargetGenerator::Generate()
     "<Import Project=\"$(VCTargetsPath)\\Microsoft.Cpp.targets\""
     " />\n", 1);
   this->WriteTargetSpecificReferences();
+  this->WriteNMakeConfigCommands();
   this->WriteString("<ImportGroup Label=\"ExtensionTargets\">\n", 1);
   if (this->GlobalGenerator->IsMasmEnabled())
     {
@@ -520,6 +522,43 @@ void cmVisualStudio10TargetGenerator::Generate()
   this->WriteString("</Project>", 0);
   // The groups are stored in a separate file for VS 10
   this->WriteGroups();
+
+  if (this->GlobalGenerator->TargetsGDB())
+  {
+    const char *fileDesc = "Visual Studio GDB project template file";
+    CopyProjectConfigurationExtensionFile("linux_nmake.xaml", fileDesc);
+    CopyProjectConfigurationExtensionFile("LinuxDebugger.xaml", fileDesc);
+    CopyProjectConfigurationExtensionFile("LocalDebugger.xaml", fileDesc);
+  }
+
+}
+
+void cmVisualStudio10TargetGenerator::CopyProjectConfigurationExtensionFile(
+  const char *file, const char *fileDesc) const
+{
+  std::string inFile = file;
+  if (!cmSystemTools::FileIsFullPath(inFile.c_str()))
+  {
+    std::string inMod = this->Makefile->GetModulesFile(inFile.c_str());
+    if (!inMod.empty())
+    {
+      inFile = inMod;
+    }
+  }
+  if (!cmSystemTools::FileExists(inFile.c_str(), true))
+  {
+    std::ostringstream e;
+    e << fileDesc << " \""
+      << inFile << "\" could not be found.";
+    cmSystemTools::Error(e.str().c_str());
+    return;
+  }
+
+  cmMakefile* mf = this->Makefile;
+  cmMakefile::ScopePushPop varScope(mf);
+  std::string outFile = cmSystemTools::GetFilenamePath(this->PathToVcxproj) + "/Assets/" + cmSystemTools::GetFilenameName(file);
+
+  mf->ConfigureFile(inFile.c_str(), outFile.c_str(), true, false, false);
 }
 
 void cmVisualStudio10TargetGenerator::WriteDotNetReferences()
@@ -665,7 +704,7 @@ void cmVisualStudio10TargetGenerator::WriteWinRTReferences()
     }
 }
 
-// ConfigurationType Application, Utility StaticLibrary DynamicLibrary
+// ConfigurationType Application, Utility, StaticLibrary, DynamicLibrary, Makefile
 
 void cmVisualStudio10TargetGenerator::WriteProjectConfigurations()
 {
@@ -707,11 +746,25 @@ void cmVisualStudio10TargetGenerator::WriteProjectConfigurationValues()
         {
         case cmState::SHARED_LIBRARY:
         case cmState::MODULE_LIBRARY:
+        if (this->GlobalGenerator->TargetsGDB())
+          {
+          configType += "Makefile";
+          }
+        else
+          {
           configType += "DynamicLibrary";
+          }
           break;
         case cmState::OBJECT_LIBRARY:
         case cmState::STATIC_LIBRARY:
+        if (this->GlobalGenerator->TargetsGDB())
+          {
+          configType += "Makefile";
+          }
+        else
+          {
           configType += "StaticLibrary";
+          }
           break;
         case cmState::EXECUTABLE:
           if(this->NsightTegra &&
@@ -722,7 +775,14 @@ void cmVisualStudio10TargetGenerator::WriteProjectConfigurationValues()
             }
           else
             {
-            configType += "Application";
+            if (this->GlobalGenerator->TargetsGDB())
+              {
+              configType += "Makefile";
+              }
+            else
+              {
+              configType += "Application";
+              }
             }
           break;
         case cmState::UTILITY:
@@ -1662,6 +1722,123 @@ void cmVisualStudio10TargetGenerator::WriteAllSources()
     }
 
   this->WriteString("</ItemGroup>\n", 1);
+}
+
+void cmVisualStudio10TargetGenerator::WriteGDBGroup()
+{
+  if (!this->GlobalGenerator->TargetsGDB())
+  {
+    return;
+  }
+  this->WriteString("<!--Import Project="
+    "\"$(MSBuildThisFileDirectory)\\Microsoft.cpp.Linux.targets\"/-->\n", 1);
+  this->WriteString("<!--To Enable linux debugger-->\n", 1);
+  this->WriteString("<PropertyGroup>\n", 1);
+  this->WriteString("<UseDefaultDebuggersPropertyPageSchemas>false"
+    "</UseDefaultDebuggersPropertyPageSchemas>\n", 2);
+  this->WriteString("<UseDefaultPropertyPageSchemas>false"
+    "</UseDefaultPropertyPageSchemas>\n", 2);
+  this->WriteString("<_ApplicableDebuggers>Desktop"
+    "</_ApplicableDebuggers>\n", 2);
+  this->WriteString("<DebuggerFlavor>LinuxDebugger</DebuggerFlavor>\n", 2);
+  this->WriteString("</PropertyGroup>\n", 2);
+  this->WriteString("<ItemGroup>\n", 1);
+  this->WriteString("<PropertyPageSchema Include="
+    "\"$(VCTargetsPath)$(LangID)\\ProjectItemsSchema.xml\" />\n", 2);
+  this->WriteString("<PropertyPageSchema Include="
+    "\"$(VCTargetsPath)$(LangID)\\directories.xml\" />\n", 2);
+  this->WriteString("<PropertyPageSchema Include="
+    "\"$(VCTargetsPath)$(LangID)\\debugger_general.xml\" />\n", 2);
+  this->WriteString("<PropertyPageSchema Include="
+    "\"$(MSBuildThisFileDirectory)\\Assets\\LinuxDebugger.xaml\" />\n", 2);
+  this->WriteString("<PropertyPageSchema Include="
+    "\"$(MSBuildThisFileDirectory)\\Assets\\LocalDebugger.xaml\" />\n", 2);
+  this->WriteString("<PropertyPageSchema Include="
+    "\"$(MSBuildThisFileDirectory)\\Assets\\linux_nmake.xaml\" />\n", 2);
+  this->WriteString("<!-- project only rules -->\n", 2);
+  this->WriteString("<PropertyPageSchema Include="
+    "\"$(VCTargetsPath)$(LangID)\\general_makefile.xml\">\n", 2);
+  this->WriteString("<Context>Project</Context>\n", 3);
+  this->WriteString("</PropertyPageSchema>\n", 2);
+  this->WriteString("<!-- Property sheet only rules -->\n", 2);
+  this->WriteString("<PropertyPageSchema Include="
+    "\"$(VCTargetsPath)$(LangID)\\general_makefile_ps.xml;"
+    "$(VCTargetsPath)$(LangID)\\usermacros.xml\">\n", 2);
+  this->WriteString("<Context>PropertySheet</Context>\n", 3);
+  this->WriteString("</PropertyPageSchema>\n", 2);
+  this->WriteString("<!-- File only rules -->\n", 2);
+  this->WriteString("<PropertyPageSchema Include="
+    "\"$(VCTargetsPath)$(LangID)\\general_file.xml\">\n", 2);
+  this->WriteString("<Context>File</Context>\n", 3);
+  this->WriteString("</PropertyPageSchema>\n", 2);
+  this->WriteString("</ItemGroup>\n", 1);
+  this->WriteString("<ItemGroup>\n", 1);
+  this->WriteString("<DesktopDebuggerPages Include="
+    "\"$(MSBuildThisFileDirectory)\\Assets\\LinuxDebugger.xaml\" />\n", 2);
+  this->WriteString("<DesktopDebuggerPages Include="
+    "\"$(MSBuildThisFileDirectory)\\Assets\\LocalDebugger.xaml\" />\n", 2);
+  this->WriteString("<DesktopDebuggerPages Include="
+    "\"$(MSBuildThisFileDirectory)\\Assets\\linux_nmake.xaml\" />\n", 2);
+  this->WriteString("</ItemGroup>\n", 1);
+  this->WriteString("<ItemGroup>\n", 1);
+  this->WriteString("<ProjectCapability Include=\"Linux\" />\n", 2);
+  this->WriteString("</ItemGroup>\n", 1);
+  this->WriteString("<!-- To Enable linux debugger End -->\n", 1);
+}
+
+void cmVisualStudio10TargetGenerator::WriteNMakeConfigCommands()
+{
+  if (!this->GlobalGenerator->TargetsGDB())
+  {
+    return;
+  }
+
+  const char* build = this->GeneratorTarget->GetProperty("VS_NMAKE_BUILD");
+  const char* rebuild = this->GeneratorTarget->GetProperty("VS_NMAKE_REBUILD");
+  const char* clean = this->GeneratorTarget->GetProperty("VS_NMAKE_CLEAN");
+
+  for(std::vector<std::string>::const_iterator
+      i = this->Configurations.begin();
+      i != this->Configurations.end(); ++i)
+  {
+    this->WritePlatformConfigTag("PropertyGroup", i->c_str(), 1,NULL,"\n");
+
+    std::string config = cmSystemTools::UpperCase(i->c_str());
+    std::string configProp;
+    const char* cmd;
+
+    this->WriteString("<NMakeBuildCommandLine>",2);
+    configProp = std::string("VS_NMAKE_BUILD_") + config;
+    cmd = this->GeneratorTarget->GetProperty(configProp);
+    cmd = cmd ? cmd : build;
+    if (cmd)
+      {
+      *this->BuildFileStream << cmVS10EscapeXML(cmd);
+      }
+    this->WriteString("</NMakeBuildCommandLine>\n", 2);
+
+    this->WriteString("<NMakeReBuildCommandLine>", 2);
+    configProp = std::string("VS_NMAKE_REBUILD_") + config;
+    cmd = this->GeneratorTarget->GetProperty(configProp);
+    cmd = cmd ? cmd : rebuild;
+    if (cmd)
+      {
+      *this->BuildFileStream << cmVS10EscapeXML(cmd);
+      }
+    this->WriteString("</NMakeReBuildCommandLine>\n", 2);
+
+    this->WriteString("<NMakeCleanCommandLine>", 2);
+    configProp = std::string("VS_NMAKE_CLEAN_") + config;
+    cmd = this->GeneratorTarget->GetProperty(configProp);
+    cmd = cmd ? cmd : clean;
+    if (cmd)
+      {
+      *this->BuildFileStream << cmVS10EscapeXML(cmd);
+      }
+    this->WriteString("</NMakeCleanCommandLine>\n", 2);
+
+    this->WriteString("</PropertyGroup>\n", 1);
+  }
 }
 
 bool cmVisualStudio10TargetGenerator::OutputSourceSpecificFlags(
@@ -3215,6 +3392,7 @@ void cmVisualStudio10TargetGenerator::WriteApplicationTypeSettings()
   bool isAppContainer = false;
   bool const isWindowsPhone = this->GlobalGenerator->TargetsWindowsPhone();
   bool const isWindowsStore = this->GlobalGenerator->TargetsWindowsStore();
+  bool const isGDBProject = this->GlobalGenerator->TargetsGDB();
   std::string const& v = this->GlobalGenerator->GetSystemVersion();
   if(isWindowsPhone || isWindowsStore)
     {
@@ -3313,6 +3491,17 @@ void cmVisualStudio10TargetGenerator::WriteApplicationTypeSettings()
         "</WindowsTargetPlatformMinVersion>\n";
       }
     }
+  if (isGDBProject)
+  {
+    this->WriteString("<ApplicationType>LinuxDebugger"
+      "</ApplicationType>\n", 2);
+    this->WriteString("<SecureShellExecutable>ssh"
+      "</SecureShellExecutable>\n", 2);
+    this->WriteString("<RemoteDebuggerExecutable>gdb"
+      "</RemoteDebuggerExecutable>\n", 2);
+    this->WriteString("<LocalDebuggerExecutable>gdb"
+      "</LocalDebuggerExecutable>\n", 2);
+  }
 
   // Added IoT Startup Task support
   if(this->GeneratorTarget->GetPropertyAsBool("VS_IOT_STARTUP_TASK"))

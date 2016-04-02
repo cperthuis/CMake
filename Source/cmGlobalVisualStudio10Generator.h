@@ -88,6 +88,10 @@ public:
   bool TargetsWindowsStore() const
     { return this->SystemIsWindowsStore; }
 
+  /** Return true if generating a GDB project */
+  bool TargetsGDB() const
+    {  return this->IsGDBProject;  }
+
   virtual const char* GetCMakeCFGIntDir() const
     { return "$(Configuration)";}
   bool Find64BitTools(cmMakefile* mf);
@@ -129,6 +133,7 @@ protected:
   bool SystemIsWindowsCE;
   bool SystemIsWindowsPhone;
   bool SystemIsWindowsStore;
+  bool IsGDBProject;
   bool ExpressEdition;
 
   bool UseFolderProperty();

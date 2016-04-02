@@ -103,6 +103,7 @@ cmGlobalVisualStudio10Generator::cmGlobalVisualStudio10Generator(cmake* cm,
   this->SystemIsWindowsCE = false;
   this->SystemIsWindowsPhone = false;
   this->SystemIsWindowsStore = false;
+  this->IsGDBProject = false;
   this->MSBuildCommandInitialized = false;
   this->Version = VS10;
 }
