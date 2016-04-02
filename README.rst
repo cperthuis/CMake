@@ -1,3 +1,9 @@
+GDB VS Projects for CMake
+*****
+
+This is an unofficial fork of CMake which tries to add support for GDB projects
+to the Visual Studio project generator.
+
 CMake
 *****
 
